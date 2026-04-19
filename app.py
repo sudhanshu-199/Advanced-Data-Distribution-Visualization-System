@@ -1,149 +1,156 @@
 import streamlit as st
-import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np
 import plotly.express as px
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-sns.set(style="whitegrid")
-
-st.set_page_config(page_title="Data Distribution Dashboard", layout="wide")
-
-# Title
-st.title("📊 Data Distribution Visualization Dashboard")
-
-st.markdown("Explore, analyze, and visualize your data dynamically.")
-
-# -------------------------------
-# SIDEBAR
-# -------------------------------
-
-st.sidebar.header("⚙️ Controls")
-
-data_option = st.sidebar.radio(
-    "Select Data Source",
-    ["Generate Random Data", "Upload CSV"]
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="Advanced Data Visualization System",
+    layout="wide"
 )
 
-# -------------------------------
-# DATA LOADING
-# -------------------------------
+# ---------------- TITLE ----------------
+st.title("🚀 Advanced Data Distribution Visualization System")
 
-if data_option == "Generate Random Data":
-    mean = st.sidebar.slider("Mean", 0, 100, 50)
-    std = st.sidebar.slider("Standard Deviation", 1, 30, 10)
-    size = st.sidebar.slider("Data Size", 50, 500, 200)
+# ---------------- SIDEBAR ----------------
+st.sidebar.header("⚙️ Dashboard Controls")
 
-    data = np.random.normal(mean, std, size)
-    df = pd.DataFrame(data, columns=["Values"])
+# Upload or generate data
+uploaded_file = st.sidebar.file_uploader("Upload CSV File", type=["csv"])
+generate_data = st.sidebar.button("Generate Random Dataset")
+
+# ---------------- LOAD DATA ----------------
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+
+elif generate_data:
+    df = pd.DataFrame({
+        "Sales": np.random.randint(100, 1000, 300),
+        "Profit": np.random.randn(300) * 100,
+        "Quantity": np.random.randint(1, 50, 300),
+        "Discount": np.random.rand(300),
+        "Category": np.random.choice(["Electronics", "Clothing", "Food"], 300)
+    })
 
 else:
-    uploaded_file = st.sidebar.file_uploader("Upload CSV File", type=["csv"])
-
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-    else:
-        st.warning("Please upload a CSV file.")
-        st.stop()
-
-# -------------------------------
-# DATA PREVIEW
-# -------------------------------
-
-st.subheader("📁 Dataset Preview")
-st.dataframe(df.head())
-
-# -------------------------------
-# STATISTICS
-# -------------------------------
-
-st.subheader("📊 Statistical Summary")
-st.write(df.describe())
-
-# -------------------------------
-# COLUMN SELECTION
-# -------------------------------
-
-numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
-
-if not numeric_cols:
-    st.error("No numeric columns found!")
+    st.warning("⚠️ Please upload a dataset or generate sample data.")
     st.stop()
 
-column = st.selectbox("Select Column", numeric_cols)
+# ---------------- DATA CLEANING ----------------
+st.sidebar.subheader("🧹 Data Cleaning")
 
-# -------------------------------
-# VISUALIZATION SECTION
-# -------------------------------
+if st.sidebar.checkbox("Remove Null Values"):
+    df = df.dropna()
 
+if st.sidebar.checkbox("Remove Duplicates"):
+    df = df.drop_duplicates()
+
+# ---------------- DATA PREVIEW ----------------
+st.subheader("📄 Dataset Preview")
+st.dataframe(df, use_container_width=True)
+
+# ---------------- COLUMN TYPES ----------------
+numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+categorical_cols = df.select_dtypes(include='object').columns.tolist()
+
+# ---------------- FILTERS ----------------
+st.sidebar.subheader("🔍 Filters")
+
+selected_num_cols = st.sidebar.multiselect(
+    "Select Numeric Columns",
+    numeric_cols,
+    default=numeric_cols[:2]
+)
+
+if categorical_cols:
+    selected_cat_col = st.sidebar.selectbox("Select Category Column", categorical_cols)
+    selected_values = st.sidebar.multiselect(
+        "Filter Category Values",
+        df[selected_cat_col].unique()
+    )
+    
+    if selected_values:
+        df = df[df[selected_cat_col].isin(selected_values)]
+
+# ---------------- KPI METRICS ----------------
+st.subheader("📊 Key Performance Indicators")
+
+if selected_num_cols:
+    col1, col2, col3 = st.columns(3)
+    
+    col1.metric("Mean", round(df[selected_num_cols[0]].mean(), 2))
+    col2.metric("Max", round(df[selected_num_cols[0]].max(), 2))
+    col3.metric("Min", round(df[selected_num_cols[0]].min(), 2))
+
+# ---------------- VISUALIZATION ----------------
 st.subheader("📈 Visualizations")
 
-col1, col2 = st.columns(2)
+colA, colB = st.columns(2)
 
 # Histogram
-with col1:
-    st.write("### Histogram")
-    fig, ax = plt.subplots()
-    ax.hist(df[column], bins=20)
-    st.pyplot(fig)
-
-# Histogram + KDE
-with col2:
-    st.write("### Histogram + KDE")
-    fig, ax = plt.subplots()
-    sns.histplot(df[column], kde=True, ax=ax)
-    st.pyplot(fig)
+with colA:
+    st.markdown("### Histogram")
+    fig = px.histogram(
+        df,
+        x=selected_num_cols[0],
+        color=selected_cat_col if categorical_cols else None
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 # Box Plot
-col3, col4 = st.columns(2)
+with colB:
+    st.markdown("### Box Plot")
+    fig = px.box(
+        df,
+        y=selected_num_cols[0],
+        color=selected_cat_col if categorical_cols else None
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
-with col3:
-    st.write("### Box Plot")
-    fig, ax = plt.subplots()
-    sns.boxplot(x=df[column], ax=ax)
-    st.pyplot(fig)
-
-# KDE Plot
-with col4:
-    st.write("### KDE Plot")
-    fig, ax = plt.subplots()
-    sns.kdeplot(df[column], fill=True, ax=ax)
-    st.pyplot(fig)
+# Scatter Plot
+st.markdown("### 🔥 Scatter Plot")
+if len(selected_num_cols) >= 2:
+    fig = px.scatter(
+        df,
+        x=selected_num_cols[0],
+        y=selected_num_cols[1],
+        color=selected_cat_col if categorical_cols else None
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 # Violin Plot
-st.write("### Violin Plot")
+st.markdown("### 🎻 Violin Plot")
+fig = px.violin(df, y=selected_num_cols[0], box=True)
+st.plotly_chart(fig, use_container_width=True)
+
+# KDE Plot
+st.markdown("### 📊 KDE Plot")
 fig, ax = plt.subplots()
-sns.violinplot(x=df[column], ax=ax)
+sns.kdeplot(df[selected_num_cols[0]], fill=True, ax=ax)
 st.pyplot(fig)
 
-# -------------------------------
-# INTERACTIVE PLOT (PLOTLY)
-# -------------------------------
+# ---------------- CORRELATION ----------------
+st.markdown("### 🔥 Correlation Heatmap")
+fig, ax = plt.subplots()
+sns.heatmap(df[numeric_cols].corr(), annot=True, cmap="coolwarm", ax=ax)
+st.pyplot(fig)
 
-st.subheader("⚡ Interactive Visualization")
+# ---------------- PAIR PLOT ----------------
+st.markdown("### 📊 Pair Plot (EDA)")
+if st.checkbox("Show Pair Plot"):
+    fig = sns.pairplot(df[numeric_cols])
+    st.pyplot(fig)
 
-fig = px.histogram(df, x=column, title="Interactive Histogram")
-st.plotly_chart(fig)
+# ---------------- SUMMARY ----------------
+st.subheader("📊 Summary Statistics")
+st.write(df.describe())
 
-# -------------------------------
-# INSIGHTS
-# -------------------------------
-
-st.subheader("🧠 Insights")
-
-mean_val = df[column].mean()
-median_val = df[column].median()
-std_val = df[column].std()
-
-st.metric("Mean", f"{mean_val:.2f}")
-st.metric("Median", f"{median_val:.2f}")
-st.metric("Std Dev", f"{std_val:.2f}")
-
-if mean_val > median_val:
-    st.info("📌 Data is Right-Skewed")
-elif mean_val < median_val:
-    st.info("📌 Data is Left-Skewed")
-else:
-    st.info("📌 Data is Symmetric")
-
-st.write("👉 Use box plot to detect outliers.")
+# ---------------- DOWNLOAD ----------------
+st.subheader("⬇️ Download Filtered Data")
+st.download_button(
+    "Download CSV",
+    df.to_csv(index=False),
+    file_name="filtered_data.csv"
+)
